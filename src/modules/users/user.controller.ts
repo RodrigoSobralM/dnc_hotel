@@ -3,13 +3,17 @@ import {
   Controller,
   Delete,
   Get,
-  Param,
   Patch,
   Post,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { CreateUserDto } from './domain/dto/createUser.dto';
+import { CreateUserDTO } from './domain/dto/createUser.dto';
+import { UpdateUserDTO } from './domain/dto/updateUser.dto';
+import { LoggingInterceptor } from 'src/shared/interceptors/logging.interceptor';
+import { ParamId } from 'src/shared/decorators/paramId.decorator';
 
+@UseInterceptors(LoggingInterceptor)
 @Controller('users')
 export class UserController {
   constructor(private userService: UserService) {}
@@ -20,22 +24,22 @@ export class UserController {
   }
 
   @Get(':id')
-  show(@Param('id') id: string) {
+  show(@ParamId() id: number) {
     return this.userService.show(id);
   }
 
   @Post()
-  createUser(@Body() body: CreateUserDto) {
+  createUser(@Body() body: CreateUserDTO) {
     return this.userService.createUser(body);
   }
 
   @Patch(':id')
-  updateUser(@Param('id') id: string, @Body() body: any) {
+  updateUser(@ParamId() id: number, @Body() body: UpdateUserDTO) {
     return this.userService.updateUser(id, body);
   }
 
   @Delete(':id')
-  deleteUser(@Param('id') id: string) {
+  deleteUser(@ParamId() id: number) {
     return this.userService.deleteUser(id);
   }
 }
