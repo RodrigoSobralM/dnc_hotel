@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { UserService } from '../users/user.service';
 import { AuthRegisterDTO } from './domain/dto/authRegister.dto';
 import { CreateUserDTO } from '../users/domain/dto/createUser.dto';
+import { AuthResetPasswordDTO } from './domain/dto/authResetPassword.dto';
 
 @Injectable()
 export class AuthService {
@@ -47,6 +48,18 @@ export class AuthService {
     };
 
     const user = await this.userService.createUser(newUser);
+    return await this.generateToken(user);
+  }
+
+  async resetPassword({ token, password }: AuthResetPasswordDTO) {
+    const { valid, decoded } = await this.jwtService.verifyAsync(token);
+
+    if (!valid) throw new UnauthorizedException('Invalid or expired token');
+
+    const user = await this.userService.updateUser(decoded.sub, {
+      password,
+    });
+
     return await this.generateToken(user);
   }
 }
