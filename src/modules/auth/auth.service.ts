@@ -6,6 +6,7 @@ import { UserService } from '../users/user.service';
 import { AuthRegisterDTO } from './domain/dto/authRegister.dto';
 import { CreateUserDTO } from '../users/domain/dto/createUser.dto';
 import { AuthResetPasswordDTO } from './domain/dto/authResetPassword.dto';
+import { ValidateTokenDTO } from './domain/dto/validateToken.dto';
 
 @Injectable()
 export class AuthService {
@@ -14,11 +15,11 @@ export class AuthService {
     private readonly userService: UserService,
   ) {}
 
-  async generateToken(user: User) {
+  async generateToken(user: User, expiresIn: string = '1d') {
     const payload = { sub: user.id, name: user.name };
 
     const options: JwtSignOptions = {
-      expiresIn: '1d',
+      expiresIn: expiresIn as any,
       audience: 'users',
       issuer: 'dnc_hotel',
     };
@@ -29,7 +30,7 @@ export class AuthService {
   async login({ email, password }: { email: string; password: string }) {
     const user = await this.userService.findByEmail(email);
 
-    if (!user || bcrypt.compareSync(password, user.password) === false) {
+    if (!user || !(await bcrypt.compare(password, user.password))) {
       throw new UnauthorizedException('Email or password is incorrect');
     }
 
@@ -52,14 +53,41 @@ export class AuthService {
   }
 
   async resetPassword({ token, password }: AuthResetPasswordDTO) {
-    const { valid, decoded } = await this.jwtService.verifyAsync(token);
+    const { valid, decoded } = await this.validateToken(token);
 
-    if (!valid) throw new UnauthorizedException('Invalid or expired token');
+    if (!valid || !decoded)
+      throw new UnauthorizedException('Invalid or expired token');
 
-    const user = await this.userService.updateUser(decoded.sub, {
+    const user = await this.userService.updateUser(Number(decoded.sub), {
       password,
     });
 
     return await this.generateToken(user);
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.userService.findByEmail(email);
+    console.log(user);
+
+    if (!user) {
+      throw new UnauthorizedException('Email not found');
+    }
+
+    const token = this.generateToken(user, '30m');
+    return token;
+  }
+
+  private async validateToken(token: string): Promise<ValidateTokenDTO> {
+    try {
+      const decoded = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_SECRET,
+        issuer: 'dnc_hotel',
+        audience: 'users',
+      });
+
+      return { valid: true, decoded };
+    } catch (error) {
+      return { valid: false, message: error.message };
+    }
   }
 }
